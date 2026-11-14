@@ -26,11 +26,13 @@ gradle.projectsLoaded {
         }
     }
 
-    // 与 README 原手动配置同口径：仅 debug 构建任务注入；taskNames 为空视为 IDE sync，放行以保证 IDE 模型一致
+    // 与 README 原手动配置同口径：仅 debug 构建任务注入；taskNames 为空视为 IDE sync，放行以保证 IDE 模型一致。
+    // debug 判定用“含 Debug”而不是“以 Debug 结尾”：flavor 变体任务名（如 compileDevAppleDebugKotlin、
+    // bundleProdDebug）中间带 Debug，结尾判定会漏掉它们导致插件静默不生效
     val taskNames = gradle.startParameter.taskNames.map { it.substringAfterLast(':') }
     val debugBuild = taskNames.isEmpty() || taskNames.any { name ->
         (name.startsWith("assemble") || name.startsWith("install") || name.startsWith("bundle") || name.startsWith("compile")) &&
-            (name.endsWith("Debug") || name.startsWith("compileDebug"))
+            name.contains("Debug")
     }
 
     // 注意：init script 的 Kotlin DSL 对 Action<? super Project> 通配符无法做 lambda SAM 转换，
