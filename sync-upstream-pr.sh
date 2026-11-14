@@ -20,16 +20,17 @@ git checkout upstream-pr
 if git merge main --no-edit 2>/dev/null; then
     echo "merge 完成"
 else
-    # 预期冲突：内网文件在 main 上被修改、upstream-pr 上已删除（DU = deleted by us）——保留删除
+    # 预期冲突：内网文件在 main 上被修改、upstream-pr 上已删除——保留删除。
+    # DU = deleted by us；UA = 内网文件在 main 上重命名/新增而 upstream-pr 已删除同名文件（如 gfi-内部使用说明.md 改名）
     du_resolved=0
     while IFS= read -r f; do
         [[ -z "$f" ]] && continue
         git rm -q -- "$f"
         du_resolved=1
-    done < <(git status --porcelain | awk '$1=="DU"{print $2}')
+    done < <(git status --porcelain | awk '$1=="DU"||$1=="UA"||$1=="UD"{print $2}')
 
     # 其余冲突（UU 等双边内容冲突）无法自动裁决，交还人工
-    if git status --porcelain | awk '$1=="UU"||$1=="AA"||$1=="DD"||$1=="AU"||$1=="UA"{exit 1}'; then
+    if git status --porcelain | awk '$1=="UU"||$1=="AA"||$1=="DD"||$1=="AU"{exit 1}'; then
         git add -A
         git commit -q --no-edit
         echo "merge 完成（自动解决 $du_resolved 处内网文件 modify/delete 冲突）"
