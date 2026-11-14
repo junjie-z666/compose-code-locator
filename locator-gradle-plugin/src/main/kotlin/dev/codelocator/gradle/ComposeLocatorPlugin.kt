@@ -318,25 +318,41 @@ class ComposeLocatorPlugin : Plugin<Project> {
 
     /**
      * 探测宿主工程的 Kotlin 版本：优先从本工程已应用的 Kotlin 插件类加载来源定位
-     * kotlin-gradle-plugin jar，其次回退到 rootProject；两者都探不到返回 null
+     * kotlin-gradle-plugin jar，其次回退到 rootProject；
+     * 再兜底扫 buildscript classpath；全部探不到返回 null
      */
     private fun detectHostKotlinVersion(project: Project): String? {
-        val pluginIds = listOf("org.jetbrains.kotlin.android", "org.jetbrains.kotlin.jvm")
+        // 有些工程（如 KMP、或只引 compose 插件的 AGP 工程）不 apply kotlin-android/jvm，
+        // compose 插件由 kotlin-gradle-plugin 提供，其 codeSource 同样能定位版本
+        val pluginIds = listOf(
+            "org.jetbrains.kotlin.android",
+            "org.jetbrains.kotlin.jvm",
+            "org.jetbrains.kotlin.multiplatform",
+            "org.jetbrains.kotlin.plugin.compose",
+        )
         val scopes = listOf(project, project.rootProject)
         for (scope in scopes) {
             for (pluginId in pluginIds) {
                 val plugin = scope.plugins.findPlugin(pluginId) ?: continue
-                val location = plugin.javaClass.protectionDomain?.codeSource?.location ?: continue
-                // kotlin-gradle-plugin-<version>.jar → 提取版本号
-                Regex("kotlin-gradle-plugin-([0-9][^/\\\\]*)\\.jar")
-                    .find(location.path)
-                    ?.groupValues
-                    ?.getOrNull(1)
+                extractKotlinVersionFromLocation(plugin.javaClass.protectionDomain?.codeSource?.location ?: continue)
                     ?.let { return it }
             }
         }
-        return null
+        // 兜底：buildscript classpath 上一定有 kotlin-gradle-plugin jar
+        return project.rootProject.buildscript.configurations
+            .flatMap { it.files.asSequence() }
+            .mapNotNull { extractKotlinVersionFromLocation(it) }
+            .firstOrNull()
     }
+
+    /**
+     * 从 kotlin-gradle-plugin-<version>.jar 的路径或文件名提取版本号，非该 jar 返回 null
+     */
+    private fun extractKotlinVersionFromLocation(location: Any?): String? =
+        Regex("kotlin-gradle-plugin-([0-9][^/\\\\]*)\\.jar")
+            .find(location.toString())
+            ?.groupValues
+            ?.getOrNull(1)
 
     /**
      * 由宿主 Kotlin 版本选择变体后缀：取不高于宿主大版本行的最大支持行，
