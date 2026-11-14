@@ -41,6 +41,8 @@ jobs:
     name: Verify public publishing readiness
     runs-on: macos-latest
     timeout-minutes: 45
+    # 仅手动 dispatch 时跑全量就绪度校验；tag 推送直接由 studio-release 构建发布，不重复构建
+    if: github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout
@@ -159,7 +161,6 @@ jobs:
 
   studio-release:
     name: Release Studio Plugin (tag)
-    needs: verify
     runs-on: macos-latest
     timeout-minutes: 45
     # 创建 Release 需要写 contents 权限（GITHUB_TOKEN 默认只读）
