@@ -42,4 +42,4 @@ release-studio-plugin:
         --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
         --header "Content-Type: application/json" \
         --request POST "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases" \
-        --data "{\"name\":\"${CI_COMMIT_TAG}\",\"tag_name\":\"${CI_COMMIT_TAG}\",\"description\":\"Android Studio 插件安装包。安装方式：Settings → Plugins → Install Plugin from Disk。\",\"assets\":{\"links\":[{\"name\":\"${ZIP_NAME}\",\"url\":\"${PACKAGE_URL}\"}]}}"
+        --data "{\"name\":\"${CI_COMMIT_TAG#studio-v}\",\"tag_name\":\"${CI_COMMIT_TAG}\",\"description\":\"Android Studio 插件安装包。安装方式：Settings → Plugins → Install Plugin from Disk。\",\"assets\":{\"links\":[{\"name\":\"${ZIP_NAME}\",\"url\":\"${PACKAGE_URL}\"}]}}"

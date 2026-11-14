@@ -37,58 +37,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
-    name: Verify public publishing readiness
-    runs-on: macos-latest
-    timeout-minutes: 45
-    # 仅手动 dispatch 时跑全量就绪度校验；tag 推送直接由 studio-release 构建发布，不重复构建
-    if: github.event_name == 'workflow_dispatch'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: zulu
-          java-version: "17"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Verify readiness
-        run: ./gradlew --no-daemon verifyComposeLocatorPublicPublishingReadiness -Pcodelocator.studio.useStubs=true
-
-      - name: Verify Studio plugin package metadata
-        run: ./gradlew --no-daemon verifyComposeLocatorMarketplacePackage -Pcodelocator.studio.useStubs=true
-
-      - name: Upload readiness report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: compose-locator-public-publishing-readiness
-          path: build/reports/composeLocator/public-publishing-readiness.md
-          if-no-files-found: ignore
-
-      - name: Upload release archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: compose-locator-release-archive
-          path: build/composeLocator/compose-code-locator-*-release.zip
-          if-no-files-found: error
-
-      - name: Upload Marketplace ZIP
-        if: inputs.upload_marketplace_artifact == true || inputs.upload_marketplace_artifact == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: compose-code-locator-studio-plugin
-          path: studio-plugin/build/distributions/compose-code-locator-*.zip
-          if-no-files-found: error
-
   maven-central:
     name: Publish Maven Central
-    needs: verify
     runs-on: macos-latest
     timeout-minutes: 45
     if: inputs.publish_maven_central == true || inputs.publish_maven_central == 'true'
@@ -135,7 +85,6 @@ jobs:
 
   gradle-plugin-portal:
     name: Publish Gradle Plugin Portal
-    needs: verify
     runs-on: macos-latest
     timeout-minutes: 30
     if: inputs.publish_gradle_plugin_portal == true || inputs.publish_gradle_plugin_portal == 'true'
@@ -189,7 +138,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Release 名去掉 studio- 前缀，只留 v0.1.8 这种版本号
           gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
+            --title "${GITHUB_REF_NAME#studio-}" \
             --generate-notes \
             studio-plugin/build/distributions/compose-code-locator-*.zip
