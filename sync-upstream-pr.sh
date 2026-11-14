@@ -28,7 +28,8 @@ else
         [[ -z "$f" ]] && continue
         git rm -q -- "$f"
         du_resolved=1
-    done < <(git status --porcelain | awk '$1=="DU"||$1=="UA"||$1=="UD"{print $2}')
+    # -c core.quotepath=false：防止中文路径被 porcelain 输出加引号，污染 awk 提取的文件名
+    done < <(git -c core.quotepath=false status --porcelain | awk '$1=="DU"||$1=="UA"||$1=="UD"{print $2}')
 
     # 其余冲突（UU 等双边内容冲突）无法自动裁决，交还人工
     if git status --porcelain | awk '$1=="UU"||$1=="AA"||$1=="DD"||$1=="AU"{exit 1}'; then
