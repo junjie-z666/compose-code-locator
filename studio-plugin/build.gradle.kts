@@ -151,6 +151,9 @@ tasks.register<Zip>("buildStudioPluginZip") {
 // 因此各起一次独立 Gradle 进程构建并把产物重命名为变体名，两次构建必须串行避免同名产物互踩
 val compilerPluginJarName = "locator-compiler-plugin-${rootProject.version}.jar"
 val compilerPluginBuildLibs = rootProject.file("locator-compiler-plugin/build/libs")
+// 变体 jar 重命名后的输出目录：不能回写 compiler-plugin 的 build/libs——那是 publish 产物（module metadata 等）的
+// 输出目录，两个任务写同一目录会触发 Gradle 隐式依赖校验失败
+val compilerPluginVariantDir = layout.buildDirectory.dir("compiler-plugin-variants")
 
 /**
  * 注册一个 Kotlin 编译器变体的构建+重命名任务对：
@@ -192,7 +195,7 @@ fun registerCompilerPluginVariant(
             exclude("*-sources.jar", "*-javadoc.jar")
         }
         rename { "locator-compiler-plugin-kotlin-$apiVersion.jar" }
-        into(compilerPluginBuildLibs)
+        into(compilerPluginVariantDir)
     }
     return buildTask to renameTask
 }
@@ -222,10 +225,9 @@ val copyLocatorBootstrapArtifacts by tasks.registering(Copy::class) {
     dependsOn(project(":locator-runtime-android").tasks.named("bundleDebugAar"))
 
     from(bootstrapJar)
-    from(rootProject.file("locator-compiler-plugin/build/libs")) {
-        // 只收带 Kotlin 行变体后缀的 jar（kotlin-2.2/kotlin-2.4）；不带后缀的主 jar 任务产物不随 zip 分发
+    from(compilerPluginVariantDir) {
+        // 变体 jar 由 renameCompilerPluginVariant* 任务重命名输出到独立目录，避免与 publish 产物目录互踩
         include("locator-compiler-plugin-kotlin-*.jar")
-        exclude("*-sources.jar", "*-javadoc.jar")
     }
     // runtime core jar：AAR 文件依赖不带 pom 传递依赖，必须与 AAR 一起注入，否则 APK 缺 core 类直接崩溃。
     // 只收当前版本的 jar，避免本地残留旧版本产物重命名后同名冲突
