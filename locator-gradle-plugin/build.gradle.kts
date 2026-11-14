@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "io.github.nianzixin"
-version = "0.1.7"
+version = "0.1.8"
 
 val publicGitHubUrl = "https://github.com/nianzixin/compose-code-locator"
 
