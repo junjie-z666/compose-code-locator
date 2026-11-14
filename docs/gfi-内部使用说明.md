@@ -22,13 +22,7 @@ http://192.168.5.254/api/v4/projects/513/packages/generic/compose-code-locator-s
 
 ### 从旧版手动配置迁移
 
-删除 `app/build.gradle.kts` 里旧接入的全部内容（见下方附录 A 反向操作）：
-
-- 整段 `buildscript { ... }`（含 locator 的 classpath 与内网 maven 仓库）
-- `if (isDebugLocatorBuild) { apply(...) }` 附近的判断与 apply 代码
-- `app/src/debug/AndroidManifest.xml` 里的 `overrideLibrary` 行（若该文件只为 locator 而建可整文件删除）
-
-init script 对已手动 apply 的情况幂等跳过，忘删也不会冲突。
+删除 `app/build.gradle.kts` 里旧接入的全部内容：整段 `buildscript { ... }`（含 locator 的 classpath 与内网 maven 仓库）、`if (isDebugLocatorBuild) { apply(...) }` 附近的判断与 apply 代码、`app/src/debug/AndroidManifest.xml` 里的 `overrideLibrary` 行（若该文件只为 locator 而建可整文件删除）。init script 对已手动 apply 的情况幂等跳过，忘删也不会冲突。
 
 ### 日常使用
 
@@ -41,58 +35,6 @@ init script 对已手动 apply 的情况幂等跳过，忘删也不会冲突。
 - clean 后重新 build，下次点选会自动加载新索引；点"刷新索引"按钮可手动强制刷新，这两种情况都不需要重启 AS
 - 使用 jugg 等增量构建工具时无需额外配置；若仍出现 "app APK and IDE project are likely out of sync"，跑一次 `./gradlew :app:installDebug` 即可重新对齐
 - 候选列表里的 DecorView、LayoutNode、FillElement 等是框架/库代码节点，本身没有 sourceId，点到这些无法跳转属正常现象，跳转请选带 `文件名.kt:行号` 标签的候选
-
-## 附录 A：旧版手动配置（仅迁移对照与兜底用）
-
-0.1.5 及之前的接入方式如下。依赖内网 GitLab Package Registry（`locator-gradle-plugin:0.1.2` 等 Maven 产物照常发布）。
-
-```kotlin
-// Compose Code Locator 按需加载：只有构建 debug 变体（assemble/install/bundle/compile *Debug）时才启用，
-// 正式包打包、IDE 同步均不加载插件、不解析产物仓库，项目搬到无外网环境可正常出包
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-        // Compose Code Locator 产物：内网 GitLab Package Registry，放最后避免拖慢官方依赖解析
-        maven {
-            url = uri("http://192.168.5.254/api/v4/projects/513/packages/maven")
-            isAllowInsecureProtocol = true
-        }
-    }
-    // 判断条件必须包含 compile 任务：jugg 等增量构建工具内部直接调 compileDebugKotlin，
-    // 只匹配 assemble/install/bundle 会导致增量编译出的 APK 与 Studio 索引不同步，点击元素无法跳转
-    val debugBuild = gradle.startParameter.taskNames
-        .map { it.substringAfterLast(':') }
-        .any {
-            (it.startsWith("assemble") || it.startsWith("install") || it.startsWith("bundle") || it.startsWith("compile")) &&
-                (it.endsWith("Debug") || it.startsWith("compileDebug"))
-        }
-    if (debugBuild) {
-        dependencies {
-            classpath("io.github.nianzixin:locator-gradle-plugin:0.1.2")
-        }
-    }
-}
-
-// 与上方 buildscript 的 debugBuild 判断保持同一口径，避免插件加载与 classpath 解析不一致
-val isDebugLocatorBuild = gradle.startParameter.taskNames
-    .map { it.substringAfterLast(':') }
-    .any {
-        (it.startsWith("assemble") || it.startsWith("install") || it.startsWith("bundle") || it.startsWith("compile")) &&
-            (it.endsWith("Debug") || it.startsWith("compileDebug"))
-    }
-if (isDebugLocatorBuild) {
-    apply(plugin = "io.github.nianzixin.team-compose-locator")
-}
-```
-
-runtime 库 minSdk 26，项目 minSdk 低于 26 时需在 `app/src/debug/AndroidManifest.xml` 加：
-
-```xml
-<manifest xmlns:tools="http://schemas.android.com/tools">
-    <uses-sdk tools:overrideLibrary="dev.codelocator.runtime.android" />
-</manifest>
-```
 
 ## 发版流程（维护者）
 

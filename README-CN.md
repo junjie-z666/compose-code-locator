@@ -47,72 +47,17 @@ Compose Code Locator 是一个面向 Jetpack Compose 的源码定位工具，目
 - `demo-app`：无业务埋点的 Compose demo app。
 - `demo-feature`：Android Compose library fixture，用于验证多模块 metadata/index 聚合。
 
-## 快速接入
+## 快速接入（零配置）
 
-`0.1.1` 已发布到 Maven Central。业务工程需要保证 `pluginManagement` 能从 Maven Central 解析插件 marker：
+唯一支持的接入方式是 Android Studio 插件：装一次插件，之后用 AS 打开 Android 工程即自动完成接入——`build.gradle`、`settings.gradle` 都不需要任何改动。
 
-```kotlin
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-```
-
-接入团队 convention plugin：
-
-```kotlin
-plugins {
-    id("io.github.nianzixin.team-compose-locator") version "0.1.1"
-}
-```
-
-`0.1.1` 是 Gradle 插件/App debug SDK 的版本。Android Studio Marketplace 插件是独立版本线，当前 Studio 插件版本是 `0.1.4`。
-
-`team-compose-locator` 会自动处理依赖：
-
-```kotlin
-// Android application 模块自动添加：
-debugImplementation("io.github.nianzixin:locator-runtime-android:0.1.1")
-
-// Android library 模块自动添加：
-compileOnly("io.github.nianzixin:locator-runtime-android:0.1.1")
-```
-
-如果需要更细粒度控制，也可以只接入底层插件：
-
-```kotlin
-plugins {
-    id("io.github.nianzixin.compose-locator") version "0.1.1"
-}
-```
-
-可选配置：
-
-```kotlin
-composeLocator {
-    sourceDirectories = listOf(
-        "src/main/java",
-        "src/main/kotlin",
-        "src/debug/java",
-        "src/debug/kotlin",
-    )
-    includePackages = listOf("com.example")
-}
-```
-
-正常 debug 接入不需要改 `Application` 或 `Activity` 代码，runtime 会通过 provider 自动初始化。
-
-## 零配置接入（Android Studio 插件）
-
-如果使用 Android Studio 插件，Gradle 侧接入可以完全自动化——`build.gradle`、`settings.gradle` 都不需要任何改动。装好插件后，用 AS 打开 Android 工程即可自动完成：
-
-1. 把构建期产物（Gradle 插件 bootstrap jar、Kotlin 编译器插件 jar、runtime AAR）释放到工程的 `.gradle/compose-locator/` 目录，内网、离线环境均可用，不依赖任何远程仓库。
-2. 写全局 init script 到 `$GRADLE_USER_HOME/init.d/compose-code-locator.init.gradle.kts`（`GRADLE_USER_HOME` 环境变量优先，未设置时为 `~/.gradle`）。
-3. debug 构建（仅 `assemble`/`install`/`bundle`/`compile *Debug` 任务名）自动注入 Gradle 插件；正式包打包、IDE 同步、无关项目均不受影响。
-4. 项目 `minSdk` 低于 26 时，自动在 `src/debug/AndroidManifest.xml`（不存在才创建）写入 `<uses-sdk tools:overrideLibrary="dev.codelocator.runtime.android" />`。
+1. 安装 Studio 插件（见下方「Android Studio 插件」）。
+2. 用 AS 打开 Android 工程，打开工程时插件会自动：
+   - 把构建期产物（Gradle 插件 bootstrap jar、Kotlin 编译器插件 jar、runtime AAR）释放到工程的 `.gradle/compose-locator/` 目录，内网、离线环境均可用，不依赖任何远程仓库。
+   - 写全局 init script 到 `$GRADLE_USER_HOME/init.d/compose-code-locator.init.gradle.kts`（`GRADLE_USER_HOME` 环境变量优先，未设置时为 `~/.gradle`）。
+   - debug 构建（仅 `assemble`/`install`/`bundle`/`compile *Debug` 任务名）自动注入 Gradle 插件；正式包打包、IDE 同步、无关项目均不受影响。
+   - 项目 `minSdk` 低于 26 时，自动在 `src/debug/AndroidManifest.xml`（不存在才创建）写入 `<uses-sdk tools:overrideLibrary="dev.codelocator.runtime.android" />`。
+3. 运行 debug 包，在工具窗口抓取截图并点击元素定位源码。
 
 init script 只对存在 `.gradle/compose-locator/enable` 标记的工程生效（AS 插件打开工程时写入），CI、没装插件的同事、无关项目的构建路径与以前完全一致。Studio 插件升级后重新打开工程即自动更新释放产物与 init script；删除工程的 `.gradle/compose-locator/` 目录即可停用单项目注入。
 
@@ -120,39 +65,6 @@ Studio 索引方面的配套改动：
 
 - Studio 索引支持跨构建合并：Kotlin 增量编译只重编改动文件，索引任务会保留上一版索引中本次未涉及的条目（并剔除源文件已删除的陈旧条目），未改动文件的 `sourceId` 不会从索引中消失。
 - 源码扫描支持带接收者的 Composable（如 `fun BoxScope.SideBar(...)`），其函数体内的调用点也会进入索引。
-
-## 使用 GitHub Release 静态 Maven
-
-优先使用 Maven Central。GitHub Release 仍保留静态 Maven 仓库，用于内网镜像、离线试用或 CDN 分发：
-
-[compose-code-locator-0.1.1-release.zip](https://github.com/nianzixin/compose-code-locator/releases/tag/v0.1.1)
-
-然后把压缩包里的 `maven/` 放到内网 Maven、官网 CDN 或本地目录，并在业务工程 `settings.gradle.kts` 中配置：
-
-```kotlin
-pluginManagement {
-    repositories {
-        maven("https://your-domain.example/compose-locator/maven")
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-dependencyResolutionManagement {
-    repositories {
-        maven("https://your-domain.example/compose-locator/maven")
-        google()
-        mavenCentral()
-    }
-}
-```
-
-本机验证也可以直接指向解压后的本地目录：
-
-```kotlin
-maven("/absolute/path/to/compose-code-locator-0.1.1/maven")
-```
 
 ## Android Studio 插件
 
