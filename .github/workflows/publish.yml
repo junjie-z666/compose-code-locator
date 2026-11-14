@@ -162,6 +162,9 @@ jobs:
     needs: verify
     runs-on: macos-latest
     timeout-minutes: 45
+    # 创建 Release 需要写 contents 权限（GITHUB_TOKEN 默认只读）
+    permissions:
+      contents: write
     # 仅 studio-v* tag 触发（手动 dispatch 时无 tag 引用，自动跳过）
     if: startsWith(github.ref, 'refs/tags/studio-v')
 
