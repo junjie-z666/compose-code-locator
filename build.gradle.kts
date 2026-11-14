@@ -2204,9 +2204,12 @@ tasks.register<Exec>("publishCompilerPluginKotlin24") {
     group = "distribution"
     description = "Publishes the Kotlin 2.4 compiler plugin variant to the release staging Maven repository."
     workingDir = rootDir
-    // Windows 下 .bat 必须经 cmd 启动；CI（Linux/macOS）直接跑 gradlew
-    val wrapperScript = rootProject.file("gradlew.bat").takeIf { it.isFile }
-        ?: rootProject.file("gradlew")
+    // Windows 下 .bat 必须经 cmd 启动且优先取 .bat；CI（Linux/macOS）直接跑 gradlew
+    val wrapperScript = if (System.getProperty("os.name").contains("Windows")) {
+        rootProject.file("gradlew.bat")
+    } else {
+        rootProject.file("gradlew")
+    }
     val wrapperCommand = if (System.getProperty("os.name").contains("Windows")) {
         listOf("cmd", "/c", wrapperScript.absolutePath)
     } else {
