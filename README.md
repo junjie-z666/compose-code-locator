@@ -47,72 +47,17 @@ Core principles:
 - `demo-app`: Compose demo app with no locator-specific business UI markers.
 - `demo-feature`: Android Compose library fixture for multi-module metadata and index aggregation.
 
-## Quick Start
+## Quick Start (Zero-Config)
 
-Version `0.1.1` is available from Maven Central. Ensure `pluginManagement` can resolve plugin markers from Maven Central:
+The only supported integration is the Android Studio plugin: install it once, then opening an Android project in Android Studio wires everything automatically — `build.gradle` and `settings.gradle` need no edits at all.
 
-```kotlin
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-```
-
-Apply the team convention plugin:
-
-```kotlin
-plugins {
-    id("io.github.nianzixin.team-compose-locator") version "0.1.1"
-}
-```
-
-`0.1.1` is the Gradle plugin/App debug SDK version. The Android Studio Marketplace plugin has its own version line; the current Studio plugin version is `0.1.4`.
-
-`team-compose-locator` wires dependencies automatically:
-
-```kotlin
-// Added automatically to Android application modules:
-debugImplementation("io.github.nianzixin:locator-runtime-android:0.1.1")
-
-// Added automatically to Android library modules:
-compileOnly("io.github.nianzixin:locator-runtime-android:0.1.1")
-```
-
-For lower-level manual control, apply the core plugin directly:
-
-```kotlin
-plugins {
-    id("io.github.nianzixin.compose-locator") version "0.1.1"
-}
-```
-
-Optional configuration:
-
-```kotlin
-composeLocator {
-    sourceDirectories = listOf(
-        "src/main/java",
-        "src/main/kotlin",
-        "src/debug/java",
-        "src/debug/kotlin",
-    )
-    includePackages = listOf("com.example")
-}
-```
-
-Normal debug integration does not require Application or Activity code changes. The runtime starts automatically through a provider.
-
-## Zero-Config Setup (Android Studio Plugin)
-
-If you use the Android Studio plugin, the Gradle-side integration can be fully automatic — no `build.gradle` or `settings.gradle` edits at all. With the plugin installed, opening an Android project in Android Studio:
-
-1. Extracts the build-time artifacts (Gradle plugin bootstrap jar, Kotlin compiler plugin jar, runtime AAR) into the project's `.gradle/compose-locator/` directory, so integration works on intranet/offline machines without any remote repository.
-2. Writes a global init script to `$GRADLE_USER_HOME/init.d/compose-code-locator.init.gradle.kts` (the `GRADLE_USER_HOME` environment variable takes precedence; defaults to `~/.gradle`).
-3. Automatically injects the Gradle plugin into debug builds (`assemble`/`install`/`bundle`/`compile *Debug` task names only; release builds, IDE sync, and other projects are unaffected).
-4. When the project's `minSdk` is below 26, writes `<uses-sdk tools:overrideLibrary="dev.codelocator.runtime.android" />` into `src/debug/AndroidManifest.xml` (only if that file does not exist).
+1. Install the Studio plugin (see [Android Studio Plugin](#android-studio-plugin) below).
+2. Open your Android project in Android Studio. On project open the plugin:
+   - Extracts the build-time artifacts (Gradle plugin bootstrap jar, Kotlin compiler plugin jar, runtime AAR) into the project's `.gradle/compose-locator/` directory, so integration works on intranet/offline machines without any remote repository.
+   - Writes a global init script to `$GRADLE_USER_HOME/init.d/compose-code-locator.init.gradle.kts` (the `GRADLE_USER_HOME` environment variable takes precedence; defaults to `~/.gradle`).
+   - Automatically injects the Gradle plugin into debug builds (`assemble`/`install`/`bundle`/`compile *Debug` task names only; release builds, IDE sync, and other projects are unaffected).
+   - When the project's `minSdk` is below 26, writes `<uses-sdk tools:overrideLibrary="dev.codelocator.runtime.android" />` into `src/debug/AndroidManifest.xml` (only if that file does not exist).
+3. Run the debug app, capture a screenshot in the tool window, and click a UI element to navigate to source.
 
 The init script only activates in projects marked with a `.gradle/compose-locator/enable` file (written when the Studio plugin opens the project), so CI, teammates without the plugin, and unrelated projects behave exactly as before. Reopening the project after a Studio plugin upgrade refreshes the extracted artifacts and init script. To disable injection for one project, delete its `.gradle/compose-locator/` directory.
 
@@ -120,39 +65,6 @@ Studio-side index notes:
 
 - The Studio index is regenerated across incremental builds: Kotlin incremental compilation only re-compiles changed files, so the index task merges entries from the previous index instead of rebuilding from scratch, keeping `sourceId`s of untouched files navigable.
 - The source scanner recognizes composables with a receiver type (e.g. `fun BoxScope.SideBar(...)`), so call sites inside such function bodies are indexed too.
-
-## Using The GitHub Release Maven Package
-
-Maven Central is the preferred distribution channel. The GitHub Release still contains a static Maven repository for internal mirrors, offline trials, or CDN-based distribution:
-
-[compose-code-locator-0.1.1-release.zip](https://github.com/nianzixin/compose-code-locator/releases/tag/v0.1.1)
-
-Mirror the `maven/` directory to an internal Maven repository, public CDN, or local directory, then configure `settings.gradle.kts`:
-
-```kotlin
-pluginManagement {
-    repositories {
-        maven("https://your-domain.example/compose-locator/maven")
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-dependencyResolutionManagement {
-    repositories {
-        maven("https://your-domain.example/compose-locator/maven")
-        google()
-        mavenCentral()
-    }
-}
-```
-
-For local verification, point Gradle at the unzipped local Maven directory:
-
-```kotlin
-maven("/absolute/path/to/compose-code-locator-0.1.1/maven")
-```
 
 ## Android Studio Plugin
 
